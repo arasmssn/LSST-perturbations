@@ -1,0 +1,624 @@
+LSST CAMERA DISTORTION DATABASE
+140529
+organized & packaged by andy rasmussen, arasmus@slac.stanford.edu
+
+This perturbation database for the LSST Camera includes several parts:
+
+0) The original ZIP files created by John Ku with epochs spanning May
+18, 2009 and October 20, 2012. 
+
+1) Scripts to extract relevant data from (0) and to organize them into
+intermediate files. When appropriate, this script also characterizes
+surface deformations in terms of expansions in zernike coefficients
+according to ANSI Z80.28 with coefficients reported in mm rms. This
+may be useful in some cases. The zernike coefficients are not 
+intended to replace the raw surface error maps (ntuples for each
+surface) but are tabulated out to 9th order in radius (45
+coefficients) and are only provided as an alternative to the maps
+(ntuples). 
+
+2) A patch script to populate intermediate files for which full FEA
+calculation results are not available, but were summarized in various
+spreadsheets provided by John Ku. Perturbations for such surfaces are
+handled simply as solid body transformations and surface deformations
+on top of these are absent. 
+
+3) The location for the data sources (0), together with the generated
+intermediate files [outputs of (1) and (2)] is specified with the
+environment variable $DISTORTION_DB_PATH. This is also the location
+that is scanned for appropriate files when subsequent instances of
+distortion prescriptions are prepared for use for optical modeling
+purposes. 
+
+4) An environmental perturbation compiler. This program generates a
+set of distortion files according to the specified environmental
+criteria. This list currently includes only the elevation angle of the
+Telescope, the rotation angle of the Camera and the soak temperature
+of the Camera skin. There is a switch to turn off precompensation of
+the optical prescription - in which case it is implied that the entire
+camera exactly matches the design prescription at room temperature
+(cryostat not operating) and under zero acceleration load. Conversely,
+the current compensation prescription implies that all internal
+spacing of the camera elements meets the design prescription for
+zenith pointing and a camera soak temperature of 20 degrees
+Celsius. Surface deformations for all interfaces are assumed to be
+*not* precompensated (in contrast to assumptions built into figure
+extraction codes for both the M1/M3 monolith and for M2).  
+
+5) A binary fits table generator to organize and store the output of
+(4) for safekeeping and later referencing. This format has been
+augmented since our discussions of January 2013, and subsequent
+release of those calculation results using the packaging we discussed:
+It now includes a set of extensions that include the perturbations of
+the FEA grid points interpolated over the environmental parameter
+space as described in (4). This output file currently lacks the
+"CAMcomp" extension which included the 5 d.o.f. compensation
+prescription that minimizes delivered spot sizes at the centers of the
+189 science sensors. Those camera compensation prescriptions may
+alternatively be generated using ZEMAX or PhoSim in an appropriately
+designed optimization loop or by using the wavefront signal feedback. 
+
+____________________________________________________________
+
+SPECIFIC INSTRUCTIONS FOR USE
+
+A) Start out by defining the environment variable
+$DISTORTION_DB_PATH. This should be set to the directory named "DB"
+within the CAMERA_FEA directory:
+
+(for bash)
+[user@host ~]$ export DISTORTION_DB_PATH="camera fea dir"/DB
+
+(for csh)
+[user@host ~]$ setenv DISTORTION_DB_PATH "camera fea dir"/DB
+
+B) If the intermediate data files need to be regenerated, this may be
+accomplished by running the 3 perl scripts listed below in
+sequence. This step may take a few hours to complete, so be sure this
+is what you want before you issue the commands.
+
+[user@host ~]$ cd "camera fea dir"
+[user@host "camera fea dir"]$ ./extract_displacements_1.perl
+[user@host "camera fea dir"]$ ./extract_displacements_2.perl
+[user@host "camera fea dir"]$ ./patchup_distortions.perl
+
+The above commands should throw an error unless the required
+modules are installed first:
+
+[user@host ~]$ cpan Scalar::Util
+[user@host ~]$ cpan Math::Amoeba
+[user@host ~]$ cpan Spreadsheet::Read
+[user@host ~]$ cpan Text::CSV_XS
+[user@host ~]$ cpan Astro::FITS::CFITSIO
+
+After successful completion of this step, the files listed together in
+Appendices A and B should reside within $DISTORTION_DB_PATH. Files
+containing the strings shown below are described briefly here:
+
+* filenames containing L1_new_*
+  These files correspond to L1 using FEA calculations contained in 
+  	. L1-L2\ Deformations-2012-Sep-11.zip 
+  	. Therm-Figure-R2.zip
+
+* filenames containing L2_new_*
+  These files correspond to L2 using FEA calculations contained in:
+  	. L1-L2\ Deformations-2012-Sep-11.zip 
+  	. Therm-Figure-R2.zip
+
+* filenames containing L3_*
+  These files correspond to L3 using FEA calculations contained (or
+  summarized) in:
+  	. Displacements.zip
+	. Td-Lens-Motion-r2.zip
+
+* filenames containing FP_*
+  These files correspond to the focal plane (FP) using FEA
+  calculations summarized in:
+  	. Optical\ Distortions\ Calculations.zip
+	. Td-Lens-Motion-r2.zip
+
+* filenames containing F_*
+  These files correspond to the filter (F) using FEA
+  calculations summarized in:
+  	. Optical\ Distortions\ Calculations.zip
+	. Td-Lens-Motion-r2.zip
+
+* filenames containing *_S1_* and *_S2_*
+  These files correspond to distortions in the first and second
+  surfaces respectively, of each optic. 
+
+* filenames containing *perturb_nosb.tnt
+  These files contain the full perturbation (dz), the solid body
+  component (sbdz), and the perturbation with the solid body component
+  removed (dz-sbdz). As usual, the FEA calculation node grid locations
+  are given (x and y). Units are unmodified (in meters throughout).
+
+* filenames containing *perturbation.tnt:
+  These files contain a subset of the columns given in the
+  corresponding *perturb_nosb.tnt file (x, y and dz-sbdz). Because
+  minimal data manipulation was performed in generating this file,
+  units remain untouched (they are in meters throughout). 
+
+* filenames containing *solidbody.dat
+  These files are the solid body transformation prescriptions as
+  determined from the collective node displacements and rotations from
+  the FEA calculation. The format is:
+  -t <tx> <ty> <tz> -r <rx> <ry> <rz>
+  where the <t*> and <r*> terms are translations and rotations,
+  respectively, about the x, y and z axes. <t*> units are 
+  millimeters, and <r*> units are radians.
+
+* filenames containing *fit.tnt
+  These files contain data that may be examined to inspect the quality
+  of the fit to the distortions under the named driving condition
+  (using Zernike expansion representation). Columns include 
+  normalized coordinates (x/rm and y/rm) of the FEA calculation grid,
+  the FEA computed perturbation (dz), the model (model) drawn from
+  evaluating the zernike expansion, the residual (residual) or he
+  difference between the data/perturbation and the model, and finally
+  the model with solid body terms removed (z3+). These files are
+  provided for reference if one is considering use of the zernike
+  expansion to represent surface distortions. Those expansions are
+  given in the corresponding *fit.dat file.
+
+* filenames containing *fit.dat
+  These files contain a colon (:) delimited list of zernike
+  coefficients in ANSI Z80.28 order that were determined in the
+  fitting process. Fit residual maps are available in the
+  corresponding *fit.tnt file. Units for the zernike coefficients are
+  millimeters. 
+
+C) Once the intermediate files are available in $DISTORTION_DB_PATH, 
+instances of the camera internal environmental distortions can be
+generated by invoking the script:
+
+[user@host "camera fea dir"]$ ./generate_camera_env_perturbation.perl
+
+using the appropriate arguments. The instance files will be generated
+and will populate the current working directory (./). For a typical
+invocation, these instance file names are listed in Appendix D. Please
+be aware that this script will not clean up after itself prior to
+a subsequent invocation. While target filenames will be generated,
+and are quietly overwritten as necessary. The new files that are
+generated are listed on STDOUT prior to passing control back to the
+caller. If in doubt, always use a fresh new directory to deposit
+contents of a perturbation instance.
+
+This script peforms the necessary conversion of units into millimeters
+and also makes any required corrections in the apparent driving
+condition details. Read some of the verbose output if necessary.
+
+This program's output includes files of up to three types:
+
+. *solidbody_g.dat
+  These are files that contain a linear superpositions of the
+  appropriate intermediate files with names *solidbody.dat. The solid
+  body displacement prescription identical to those noted above:
+  -t <tx> <ty> <tz> -r <rx> <ry> <rz>
+  where the <t*> and <r*> terms are translations and rotations,
+  respectively, about the x, y and z axes. <t*> units are
+  millimeters, and <r*> units are radians.
+
+. *zern_g.dat
+  These are files that contain linear superpositions of the
+  appropriate intermediate files with names *fit.dat. The files
+  contain a colon (:) delimited list of zernike coefficients according
+  to ANSI Z80.28 order that were determined in the fitting
+  process. Units for the zernike coefficients are millimeters. 
+
+. *perturbation_g.dat
+  These are files that contain linear superpositions of the
+  appropriate intermediate files with names *perturbation.tnt.
+  Three columns (x, y, and dz-sbdz) contain the interpolated,
+  node-specific deformations, now reported in millimeters, converted
+  from meters in the intermediate files.
+
+Please contact arasmus@slac.stanford.edu to ask questions or report
+bugs. TIA.
+
+APPENDIX A
+
+filenames of the FEA calculation outputs (0)
+
+the input files in the Camera Distortion Database directory,
+contained in this package, are listed below. expanded filenames are
+given relative to $DISTORTION_DB_PATH. Not all of these files are used
+in creating the array of intermediate files, but are included here for
+completeness.
+
+
+Displacements.zip
+	date: 2012-March-30
+	contains:
+		Displacements/Grid\ Coordinates.csv
+		Displacements/X-accel.csv
+		Displacements/Y-accel.csv
+		Displacements/Z-accel.csv
+
+TD-Lens-Motion-r2.zip
+	date: 2009-Oct-27
+	contains:
+		TD-Lens-Motion-r2.xls
+
+L1-L2\ Deformations-2012-Sep-11.zip
+	date: 2012-September-11
+	contains:
+		L1-L2-Node\ Locations-r2.xlsx
+		L1-L2\ Deformations/GX-L1-S1.csv
+		L1-L2\ Deformations/GX-L1-S2.csv
+		L1-L2\ Deformations/GX-L2-S1.csv
+		L1-L2\ Deformations/GX-L2-S2.csv
+		L1-L2\ Deformations/GY-L1-S1.csv
+		L1-L2\ Deformations/GY-L1-S2.csv
+		L1-L2\ Deformations/GY-L2-S1.csv
+		L1-L2\ Deformations/GY-L2-S2.csv
+		L1-L2\ Deformations/GZ-L1-S1.csv
+		L1-L2\ Deformations/GZ-L1-S2.csv
+		L1-L2\ Deformations/GZ-L2-S1.csv
+		L1-L2\ Deformations/GZ-L2-S2.csv
+
+TD-Lens-Motion.zip
+	date: 2009-May-18
+	contains:
+		TD-Lens-Motion.xls
+
+New-L1-L2-Figure-Calcs-r1.zip
+	date: 2012-June-20
+	contains:
+		GX-L1-L2\ Figure.csv
+		GY-L1-L2\ Figure.csv
+		GZ-L1-L2\ Figure.csv
+		Point\ Coordinates.csv
+
+Therm-Figure-R2.zip
+	date: 2012-October-02 & 24
+	contains:
+		Therm-Figure/Cold-L1-S1.csv
+		Therm-Figure/Cold-L1-S2.csv
+		Therm-Figure/Cold-L2-S1.csv
+		Therm-Figure/Cold-L2-S2.csv
+		Therm-Figure/Hot-L1-S1.csv
+		Therm-Figure/Hot-L1-S2.csv
+		Therm-Figure/Hot-L2-S1.csv
+		Therm-Figure/Hot-L2-S2.csv
+		Therm-Figure/Nom-L1-S1.csv
+		Therm-Figure/Nom-L1-S2.csv
+		Therm-Figure/Nom-L2-S1.csv
+		Therm-Figure/Nom-L2-S2.csv
+
+Optical\ Distortions\ Calculations.zip
+	date: 2009-October-20
+	contains:
+		Optical\ Distortions\ Calculations.xls
+
+Therm-Figure.zip
+	date: 2012-October-02
+	contains:
+		Therm-Figure/Cold-L1-S1.csv
+		Therm-Figure/Cold-L1-S2.csv
+		Therm-Figure/Cold-L2-S1.csv
+		Therm-Figure/Cold-L2-S2.csv
+		Therm-Figure/Hot-L1-S1.csv
+		Therm-Figure/Hot-L1-S2.csv
+		Therm-Figure/Hot-L2-S1.csv
+		Therm-Figure/Hot-L2-S2.csv
+		Therm-Figure/Nom-L1-S1.csv
+		Therm-Figure/Nom-L1-S2.csv
+		Therm-Figure/Nom-L2-S1.csv
+		Therm-Figure/Nom-L2-S2.csv
+
+APPENDIX B
+
+filenames of the intermediate files - generated in (1) and (2)
+relative to $DISTORTION_DB_PATH
+
+L1 files:
+	L1_new/gravity/L1_new_GX_ccs_coords_full_solidbody.dat
+	L1_new/gravity/L1_new_GX_ccs_coords_solidbody.dat
+	L1_new/gravity/L1_new_GY_ccs_coords_full_solidbody.dat
+	L1_new/gravity/L1_new_GY_ccs_coords_solidbody.dat
+	L1_new/gravity/L1_new_GZ_ccs_coords_full_solidbody.dat
+	L1_new/gravity/L1_new_GZ_ccs_coords_solidbody.dat
+	L1_new/gravity/L1_new_S1_GX_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S1_GX_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S1_GX_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S1_GX_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S1_GX_ccs_coords.tnt
+	L1_new/gravity/L1_new_S1_GY_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S1_GY_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S1_GY_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S1_GY_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S1_GY_ccs_coords.tnt
+	L1_new/gravity/L1_new_S1_GZ_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S1_GZ_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S1_GZ_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S1_GZ_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S1_GZ_ccs_coords.tnt
+	L1_new/gravity/L1_new_S2_GX_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S2_GX_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S2_GX_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S2_GX_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S2_GX_ccs_coords.tnt
+	L1_new/gravity/L1_new_S2_GY_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S2_GY_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S2_GY_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S2_GY_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S2_GY_ccs_coords.tnt
+	L1_new/gravity/L1_new_S2_GZ_ccs_coords_fit.dat
+	L1_new/gravity/L1_new_S2_GZ_ccs_coords_fit.tnt
+	L1_new/gravity/L1_new_S2_GZ_ccs_coords_perturbation.tnt
+	L1_new/gravity/L1_new_S2_GZ_ccs_coords_perturb_nosb.tnt
+	L1_new/gravity/L1_new_S2_GZ_ccs_coords.tnt
+	L1_new/thermal/L1_new_Cold_ccs_coords_full_solidbody.dat
+	L1_new/thermal/L1_new_Cold_ccs_coords_solidbody.dat
+	L1_new/thermal/L1_new_Hot_ccs_coords_full_solidbody.dat
+	L1_new/thermal/L1_new_Hot_ccs_coords_solidbody.dat
+	L1_new/thermal/L1_new_Nom_ccs_coords_full_solidbody.dat
+	L1_new/thermal/L1_new_Nom_ccs_coords_solidbody.dat
+	L1_new/thermal/L1_new_S1_Cold_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S1_Cold_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S1_Cold_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S1_Cold_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S1_Cold_ccs_coords.tnt
+	L1_new/thermal/L1_new_S1_Hot_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S1_Hot_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S1_Hot_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S1_Hot_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S1_Hot_ccs_coords.tnt
+	L1_new/thermal/L1_new_S1_Nom_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S1_Nom_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S1_Nom_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S1_Nom_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S1_Nom_ccs_coords.tnt
+	L1_new/thermal/L1_new_S2_Cold_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S2_Cold_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S2_Cold_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S2_Cold_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S2_Cold_ccs_coords.tnt
+	L1_new/thermal/L1_new_S2_Hot_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S2_Hot_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S2_Hot_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S2_Hot_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S2_Hot_ccs_coords.tnt
+	L1_new/thermal/L1_new_S2_Nom_ccs_coords_fit.dat
+	L1_new/thermal/L1_new_S2_Nom_ccs_coords_fit.tnt
+	L1_new/thermal/L1_new_S2_Nom_ccs_coords_perturbation.tnt
+	L1_new/thermal/L1_new_S2_Nom_ccs_coords_perturb_nosb.tnt
+	L1_new/thermal/L1_new_S2_Nom_ccs_coords.tnt
+	
+L2 files:
+	L2_new/gravity/L2_new_GX_ccs_coords_full_solidbody.dat
+	L2_new/gravity/L2_new_GX_ccs_coords_solidbody.dat
+	L2_new/gravity/L2_new_GY_ccs_coords_full_solidbody.dat
+	L2_new/gravity/L2_new_GY_ccs_coords_solidbody.dat
+	L2_new/gravity/L2_new_GZ_ccs_coords_full_solidbody.dat
+	L2_new/gravity/L2_new_GZ_ccs_coords_solidbody.dat
+	L2_new/gravity/L2_new_S1_GX_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S1_GX_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S1_GX_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S1_GX_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S1_GX_ccs_coords.tnt
+	L2_new/gravity/L2_new_S1_GY_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S1_GY_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S1_GY_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S1_GY_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S1_GY_ccs_coords.tnt
+	L2_new/gravity/L2_new_S1_GZ_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S1_GZ_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S1_GZ_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S1_GZ_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S1_GZ_ccs_coords.tnt
+	L2_new/gravity/L2_new_S2_GX_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S2_GX_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S2_GX_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S2_GX_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S2_GX_ccs_coords.tnt
+	L2_new/gravity/L2_new_S2_GY_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S2_GY_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S2_GY_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S2_GY_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S2_GY_ccs_coords.tnt
+	L2_new/gravity/L2_new_S2_GZ_ccs_coords_fit.dat
+	L2_new/gravity/L2_new_S2_GZ_ccs_coords_fit.tnt
+	L2_new/gravity/L2_new_S2_GZ_ccs_coords_perturbation.tnt
+	L2_new/gravity/L2_new_S2_GZ_ccs_coords_perturb_nosb.tnt
+	L2_new/gravity/L2_new_S2_GZ_ccs_coords.tnt
+	L2_new/thermal/L2_new_Cold_ccs_coords_full_solidbody.dat
+	L2_new/thermal/L2_new_Cold_ccs_coords_solidbody.dat
+	L2_new/thermal/L2_new_Hot_ccs_coords_full_solidbody.dat
+	L2_new/thermal/L2_new_Hot_ccs_coords_solidbody.dat
+	L2_new/thermal/L2_new_Nom_ccs_coords_full_solidbody.dat
+	L2_new/thermal/L2_new_Nom_ccs_coords_solidbody.dat
+	L2_new/thermal/L2_new_S1_Cold_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S1_Cold_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S1_Cold_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S1_Cold_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S1_Cold_ccs_coords.tnt
+	L2_new/thermal/L2_new_S1_Hot_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S1_Hot_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S1_Hot_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S1_Hot_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S1_Hot_ccs_coords.tnt
+	L2_new/thermal/L2_new_S1_Nom_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S1_Nom_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S1_Nom_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S1_Nom_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S1_Nom_ccs_coords.tnt
+	L2_new/thermal/L2_new_S2_Cold_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S2_Cold_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S2_Cold_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S2_Cold_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S2_Cold_ccs_coords.tnt
+	L2_new/thermal/L2_new_S2_Hot_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S2_Hot_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S2_Hot_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S2_Hot_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S2_Hot_ccs_coords.tnt
+	L2_new/thermal/L2_new_S2_Nom_ccs_coords_fit.dat
+	L2_new/thermal/L2_new_S2_Nom_ccs_coords_fit.tnt
+	L2_new/thermal/L2_new_S2_Nom_ccs_coords_perturbation.tnt
+	L2_new/thermal/L2_new_S2_Nom_ccs_coords_perturb_nosb.tnt
+	L2_new/thermal/L2_new_S2_Nom_ccs_coords.tnt
+	
+L3 files:
+	L3/gravity/L3_Cold_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_GX_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_GX_ccs_coords_solidbody.dat
+	L3/gravity/L3_GY_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_GY_ccs_coords_solidbody.dat
+	L3/gravity/L3_GZ_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_GZ_ccs_coords_solidbody.dat
+	L3/gravity/L3_Hot_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_Nom_ccs_coords_full_solidbody.dat
+	L3/gravity/L3_S1_GX_ccs_coords_fit.dat
+	L3/gravity/L3_S1_GX_ccs_coords_fit.tnt
+	L3/gravity/L3_S1_GX_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S1_GX_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S1_GX_ccs_coords.tnt
+	L3/gravity/L3_S1_GY_ccs_coords_fit.dat
+	L3/gravity/L3_S1_GY_ccs_coords_fit.tnt
+	L3/gravity/L3_S1_GY_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S1_GY_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S1_GY_ccs_coords.tnt
+	L3/gravity/L3_S1_GZ_ccs_coords_fit.dat
+	L3/gravity/L3_S1_GZ_ccs_coords_fit.tnt
+	L3/gravity/L3_S1_GZ_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S1_GZ_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S1_GZ_ccs_coords.tnt
+	L3/gravity/L3_S2_GX_ccs_coords_fit.dat
+	L3/gravity/L3_S2_GX_ccs_coords_fit.tnt
+	L3/gravity/L3_S2_GX_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S2_GX_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S2_GX_ccs_coords.tnt
+	L3/gravity/L3_S2_GY_ccs_coords_fit.dat
+	L3/gravity/L3_S2_GY_ccs_coords_fit.tnt
+	L3/gravity/L3_S2_GY_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S2_GY_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S2_GY_ccs_coords.tnt
+	L3/gravity/L3_S2_GZ_ccs_coords_fit.dat
+	L3/gravity/L3_S2_GZ_ccs_coords_fit.tnt
+	L3/gravity/L3_S2_GZ_ccs_coords_perturbation.tnt
+	L3/gravity/L3_S2_GZ_ccs_coords_perturb_nosb.tnt
+	L3/gravity/L3_S2_GZ_ccs_coords.tnt
+	L3/thermal/L3_Cold_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_GX_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_GX_ccs_coords_solidbody.dat
+	L3/thermal/L3_GY_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_GY_ccs_coords_solidbody.dat
+	L3/thermal/L3_GZ_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_GZ_ccs_coords_solidbody.dat
+	L3/thermal/L3_Hot_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_Nom_ccs_coords_full_solidbody.dat
+	L3/thermal/L3_S1_GX_ccs_coords_fit.dat
+	L3/thermal/L3_S1_GX_ccs_coords_fit.tnt
+	L3/thermal/L3_S1_GX_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S1_GX_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S1_GX_ccs_coords.tnt
+	L3/thermal/L3_S1_GY_ccs_coords_fit.dat
+	L3/thermal/L3_S1_GY_ccs_coords_fit.tnt
+	L3/thermal/L3_S1_GY_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S1_GY_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S1_GY_ccs_coords.tnt
+	L3/thermal/L3_S1_GZ_ccs_coords_fit.dat
+	L3/thermal/L3_S1_GZ_ccs_coords_fit.tnt
+	L3/thermal/L3_S1_GZ_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S1_GZ_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S1_GZ_ccs_coords.tnt
+	L3/thermal/L3_S2_GX_ccs_coords_fit.dat
+	L3/thermal/L3_S2_GX_ccs_coords_fit.tnt
+	L3/thermal/L3_S2_GX_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S2_GX_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S2_GX_ccs_coords.tnt
+	L3/thermal/L3_S2_GY_ccs_coords_fit.dat
+	L3/thermal/L3_S2_GY_ccs_coords_fit.tnt
+	L3/thermal/L3_S2_GY_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S2_GY_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S2_GY_ccs_coords.tnt
+	L3/thermal/L3_S2_GZ_ccs_coords_fit.dat
+	L3/thermal/L3_S2_GZ_ccs_coords_fit.tnt
+	L3/thermal/L3_S2_GZ_ccs_coords_perturbation.tnt
+	L3/thermal/L3_S2_GZ_ccs_coords_perturb_nosb.tnt
+	L3/thermal/L3_S2_GZ_ccs_coords.tnt
+	
+Filter (F) files:
+	F/gravity/F_GX_ccs_coords_full_solidbody.dat
+	F/gravity/F_GY_ccs_coords_full_solidbody.dat
+	F/gravity/F_GZ_ccs_coords_full_solidbody.dat
+	F/thermal/F_Cold_ccs_coords_full_solidbody.dat
+	F/thermal/F_Hot_ccs_coords_full_solidbody.dat
+	F/thermal/F_Nom_ccs_coords_full_solidbody.dat
+	
+Focal plane (FP) files:
+	FP/gravity/FP_GX_ccs_coords_full_solidbody.dat
+	FP/gravity/FP_GY_ccs_coords_full_solidbody.dat
+	FP/gravity/FP_GZ_ccs_coords_full_solidbody.dat
+	FP/thermal/FP_Cold_ccs_coords_full_solidbody.dat
+	FP/thermal/FP_Hot_ccs_coords_full_solidbody.dat
+	FP/thermal/FP_Nom_ccs_coords_full_solidbody.dat
+
+APPENDIX C
+
+filenames of the intermediate files - step (2) only (for surfaces
+without detailed surface deformation data) relative to
+$DISTORTION_DB_PATH: 
+
+L3 files:
+
+       L3/thermal/L3_Cold_ccs_coords_full_solidbody.dat
+       L3/thermal/L3_Hot_ccs_coords_full_solidbody.dat
+       L3/thermal/L3_Nom_ccs_coords_full_solidbody.dat
+
+Filter (F) files:
+
+       F/gravity/F_GZ_ccs_coords_full_solidbody.dat
+       F/gravity/F_GY_ccs_coords_full_solidbody.dat
+       F/gravity/F_GX_ccs_coords_full_solidbody.dat
+       F/thermal/F_Cold_ccs_coords_full_solidbody.dat
+       F/thermal/F_Hot_ccs_coords_full_solidbody.dat
+       F/thermal/F_Nom_ccs_coords_full_solidbody.dat
+
+Focal  plane (FP) files:
+
+       FP/gravity/FP_GZ_ccs_coords_full_solidbody.dat
+       FP/gravity/FP_GY_ccs_coords_full_solidbody.dat
+       FP/gravity/FP_GX_ccs_coords_full_solidbody.dat
+       FP/thermal/FP_Cold_ccs_coords_full_solidbody.dat
+       FP/thermal/FP_Hot_ccs_coords_full_solidbody.dat
+       FP/thermal/FP_Nom_ccs_coords_full_solidbody.dat
+
+
+APPENDIX D
+	
+environmental perturbation instance files - generated in (3) [step C]
+relative to the working directory $PWD. The intermediate files
+generated in (2) are read in and interpolated across the environmental
+driving conditions available. 
+	
+L1 files:
+	L1_S1_zern_g.dat
+	L1_S1_perturbation_g.tnt
+	L1_S2_zern_g.dat
+	L1_S2_perturbation_g.tnt
+	L1solidbody_g.dat
+	
+L2 files:
+	L2_S1_zern_g.dat
+	L2_S1_perturbation_g.tnt
+	L2_S2_zern_g.dat
+	L2_S2_perturbation_g.tnt
+	L2solidbody_g.dat
+	
+L3 files:
+	L3_S1_zern_g.dat
+	L3_S1_perturbation_g.tnt
+	L3_S2_zern_g.dat
+	L3_S2_perturbation_g.tnt
+	L3solidbody_g.dat
+	
+Filter (F) files:
+	Fsolidbody_g.dat
+	
+Focal plane (FP) files:
+	FPsolidbody_g.dat
+	
+	
