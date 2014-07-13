@@ -29,7 +29,7 @@ my $ThisScript="extract_displacements.perl";
 
 my $DISTORTION_DB_PATH="/home/arasmus/camera_perturbations/DB"; # this can be gotten from an environmnetal variable
 
-my $DBKEY="LSST_PERTURBATIONS_DB";
+my $DBKEY="CAMERA_PERTURBATIONS_DB";
 
 if (!defined($ENV{$DBKEY})) {
     printf STDERR "\n";
