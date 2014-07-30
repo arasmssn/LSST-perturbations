@@ -3,6 +3,7 @@ use strict;
 use warnings;
 # script to repeatedly call CAMERA_perturbations.per
 # and to package up the output into FITS and excel files
+use POSIX;
 use Astro::FITS::CFITSIO qw ( :longnames :constants );
 
 my $status=0;
@@ -133,6 +134,21 @@ push(@{$settings},[90,90,-99]);
 my @soaktemps=(-10,-5,0,5,10,15,20,25);
 foreach my $soaktemp (@soaktemps) {
     push(@{$settings},[-99,-99,$soaktemp]);
+}
+
+for (my $soaktemp=-15;$soaktemp<=30;$soaktemp+=5) {
+    for (my $costheta=1;$costheta>0.5;$costheta-=0.1) {
+	my $deg=atan2(1,1)/45.0;
+	my $theta=acos($costheta)/$deg;
+	if ($theta == 90) {
+	    my $phi=0;
+	    push(@{$settings},[$theta,$phi,$soaktemp]);
+	} else {
+	    for (my $phi=-90;$phi<=90;$phi+=20) {
+		push(@{$settings},[$theta,$phi,$soaktemp]);
+	    }
+	}
+    }
 }
 
 if (0) {
