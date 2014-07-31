@@ -6,6 +6,7 @@ use warnings;
 use POSIX;
 use Astro::FITS::CFITSIO qw ( :longnames :constants );
 
+my %descript=();
 my $status=0;
 # $maxzern may be 28 or 45
 my $maxzern=45;
@@ -69,7 +70,7 @@ foreach my $object ("L1","L2","L3") {
     push(@names,$object."_S2_Z_distortion");
     $tfields=$#names-$[+1;
     $ttype=[@names];
-    $tform=[qw(1PE)x$tfields];
+    $tform=[qw(1E)x($#inputs-$[+1),qw(1PE)x3];
     $tunit=[@input_units,("mm")x$tfields];
     $distbodies{$label}=$file;
     $fptr->create_tbl(BINARY_TBL,0,$tfields,$ttype,$tform,$tunit,$label,$status);
@@ -214,12 +215,42 @@ foreach my $setlist (@{$settings}) {
 
 	parse_distortion($distortion,$distbodies{$label});
 
-	$col++;    $fptr->write_col_flt($col,$row,1,
-					$#{$distortion->{"x"}}-$[+1,
-					$distortion->{"x"},$status);
-	$col++;    $fptr->write_col_flt($col,$row,1,
-					$#{$distortion->{"y"}}-$[+1,
-					$distortion->{"y"},$status);
+	$col++; 
+
+	{
+	    if ($row == 1) {
+		$fptr->write_col_flt($col,$row,1,
+				     $#{$distortion->{"x"}}-$[+1,
+				     $distortion->{"x"},$status);
+		# record $repeat & $offset for subsequent writes of the same data
+		my ($repeat,$offset);
+		$fptr->read_descript($col,$row,$repeat,$offset,$status);
+		$descript{$label,"x"}=join(' ',$repeat,$offset);
+	    } else {
+		my ($repeat,$offset)=split(' ',$descript{$label,"x"});
+		printf STDERR "duplicating X row with repeat=$repeat offset=$offset\n";
+		$fptr->write_descript($col,$row,$repeat,$offset,$status);
+	    }
+	}
+
+	$col++;
+
+	{
+	    if ($row == 1) {
+		$fptr->write_col_flt($col,$row,1,
+				     $#{$distortion->{"y"}}-$[+1,
+				     $distortion->{"y"},$status);
+		# record $repeat & $offset for subsequent writes of the same data
+		my ($repeat,$offset);
+		$fptr->read_descript($col,$row,$repeat,$offset,$status);
+		$descript{$label,"y"}=join(' ',$repeat,$offset);
+	    } else {
+		my ($repeat,$offset)=split(' ',$descript{$label,"y"});
+		printf STDERR "duplicating Y row with repeat=$repeat offset=$offset\n";
+		$fptr->write_descript($col,$row,$repeat,$offset,$status);
+	    }
+	}
+	
 	$col++;    $fptr->write_col_flt($col,$row,1,
 					$#{$distortion->{"z"}}-$[+1,
 					$distortion->{"z"},$status);
