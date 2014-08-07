@@ -1,0 +1,54 @@
+This directory contains camera surface multicolumn data in grid format. The 
+data were extracted from the first 11 rows of FITS the following extensions 
+contained in the output_fitstable.fits file:
+
+L1_S1_distortion (extension index 6)
+L2_S1_distortion (extension index 7)
+L3_S1_distortion (extension index 8)
+L1_S2_distortion (extension index 9)
+L2_S2_distortion (extension index 10)
+L3_S2_distortion (extension index 11)
+
+The files were constructed by running LSST-perturbations/bo_tablegen.perl
+which in turn repeatedly called LSST-perturbations/extract_from_fits.perl
+and ingested & organized the output files that contained the extracted 
+arrays.
+
+The files contained here are the 12 files that are named:
+
+L{1,2,3}_S{1,2}_distortion_{gravity,thermalsoak}.multicol
+
+Formats for the multicol data are:
+
+<X_ccs> <Y_ccs> <deltaZ_condition1> <deltaZ_condition2>..<deltaZ_conditionN>
+
+where <X_ccs> and <Y_ccs> are the Camera Coordinate System lateral coordinates
+for the FEA nodes, and deltaZ_condition1 is the axial (Z_ccs) displacement of 
+that node according to the conditions that went into the rows of the binary
+fits table extensions written above. Specifically,
+
+for *gravity*
+
+condition1 = zenith  (theta=0),  camera rot (phi=0),  soak temperature (T=NA)
+condition2 = horizon (theta=90), camera rot (phi=0),  soak temperature (T=NA)
+condition3 = horizon (theta=90), camera rot (phi=90), soak temperature (T=NA)
+
+for *thermalsoak*
+
+condition1 = zenith  (theta=NA), camera rot (phi=NA), soak temperature (T=-10)
+condition2 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=-5)
+condition3 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=0)
+condition4 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=5)
+condition5 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=10)
+condition6 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=15)
+condition7 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=20)
+condition8 = horizon (theta=NA), camera rot (phi=NA), soak temperature (T=25)
+
+Notice that the *thermalsoak* distortion data for L3 contains basically 
+roundoff noise, because we don't have distortion data for that.
+
+NB. All 5-DOF solidbody transformation data for each body (L1,L2,F,L3,FP)
+are not extracted into this grid format. They are available as before in the 
+first 11 rows of the tables in extensions 1 through 5.
+
+arasmus, 140806
