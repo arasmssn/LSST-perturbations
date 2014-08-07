@@ -137,6 +137,7 @@ foreach my $soaktemp (@soaktemps) {
     push(@{$settings},[-99,-99,$soaktemp]);
 }
 
+if (0) {
 for (my $soaktemp=-15;$soaktemp<=30;$soaktemp+=5) {
     for (my $costheta=1;$costheta>0.5;$costheta-=0.1) {
 	my $deg=atan2(1,1)/45.0;
@@ -150,6 +151,7 @@ for (my $soaktemp=-15;$soaktemp<=30;$soaktemp+=5) {
 	    }
 	}
     }
+}
 }
 
 if (0) {

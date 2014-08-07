@@ -1,18 +1,9 @@
 # install CPAN packages as necessary
 . setup.bash
 
-# setup relevant perturbation executables path
+# call the script that sets up paths
 
-export LSST_PERTURBATIONS_DIR=`pwd`
-export PATH=$PATH:$LSST_PERTURBATIONS_DIR/M1-M3_FEA
-export PATH=$PATH:$LSST_PERTURBATIONS_DIR/M2_FEA
-export PATH=$PATH:$LSST_PERTURBATIONS_DIR/CAMERA_FEA
-
-# setup relevant perturbation database environmental variables
-
-export M1M3_PERTURBATIONS_DB=$LSST_PERTURBATIONS_DIR/M1-M3_FEA/DB
-export M2_PERTURBATIONS_DB=$LSST_PERTURBATIONS_DIR/M2_FEA/DB
-export CAMERA_PERTURBATIONS_DB=$LSST_PERTURBATIONS_DIR/CAMERA_FEA/DB
+. setup_paths.bash
 
 # the following symbolic link assignments fix links that were intended 
 # to provide relative references for Camera elements. These seem to always 
