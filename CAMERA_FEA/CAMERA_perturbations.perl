@@ -147,16 +147,6 @@ my ($my_files,$my_env)=read_database();
 my %my_files=%{$my_files};
 my %my_env=%{$my_env};
 
-if (0) {
-    my ($ky,$vl);
-    while (($ky,$vl) = each %my_files) {
-	next if ($ky !~ /L2/);
-	next if ($ky !~ /S2/);
-	printf "%s\n",join(':',$ky,$vl);
-    }
-    exit;
-}
-
 if (!looks_like_number($T_camera)) {
     printf "argument supplied following -T ".
 	"doesn't look like a temperature: $T_camera\nexiting..\n";
@@ -192,7 +182,6 @@ foreach my $body (@bodies) {
 				      "S1"."tnt"  => [],
 				      "S2"."tnt"  => []   }};
     }
-
     if ($enable_G) {
 	foreach my $condition (@G_conditions) {
 	    my @cond_vector=split(',',$my_env{$body,$condition});
@@ -206,7 +195,7 @@ foreach my $body (@bodies) {
 		$precomp_scale=0;
 	    }
 
-	    if (pow($scale,2) > 1e-8 || pow($precomp_scale,2) > 1e-8) {
+	    if ($scale*$scale > 1e-8 || $precomp_scale*$precomp_scale > 1e-8) {
 		if (defined($my_files{$body,$condition})) {
 		    push($db->{$body}->{"contribs"}->{"solidbody"},
 			 $my_files{$body,$condition});
@@ -229,7 +218,7 @@ foreach my $body (@bodies) {
 			}
 		    }
 
-		    # for distortions (tnt format) [careful! commas & dots]
+		    # for distortions (tnt format)
 		    if (defined($my_files{$body,$condition,$side,"tnt"})) {
 			push($db->{$body}->{"contribs"}->{$side."tnt"},
 			     $my_files{$body,$condition,$side,"tnt"});
@@ -252,10 +241,9 @@ foreach my $body (@bodies) {
 
     if ($enable_T) {
 
-	my @sorted_Tconds = ( sort 
-			      {pow($my_env{$body,$a}-$T_camera,2) <=> 
+	my @sorted_Tconds = sort {pow($my_env{$body,$a}-$T_camera,2) <=> 
 				   pow($my_env{$body,$b}-$T_camera,2)} 
-			      @T_conditions );
+	                       @T_conditions;
 
 	$scale[0]=($T_camera-$my_env{$body,$sorted_Tconds[1]})/
 	    ($my_env{$body,$sorted_Tconds[0]}-$my_env{$body,$sorted_Tconds[1]});
@@ -278,7 +266,7 @@ foreach my $body (@bodies) {
 	}
 
 	for (my $i=0;$i<=1;$i++) {
-	    next if (pow($scale[$i],2)<1e-8);
+	    next if ($scale[$i]*$scale[$i]<1e-8);
 
 	    my $condition=$sorted_Tconds[$i];
 
@@ -287,19 +275,19 @@ foreach my $body (@bodies) {
 		push($db->{$body}->{"contribs"}->{"solidbody"},
 		     $my_files{$body,$condition});
 		push($db->{$body}->{"weights"}->{"solidbody"},$scale[$i]);
-
-
-		if (defined($precomp_Tcond)) {
-		    my $precomp_condition=$precomp_sorted_Tconds[$i];
-
-		    push($db->{$body}->{"contribs"}->{"solidbody"},
-			 $my_files{$body,$condition});
-		    push($db->{$body}->{"weights"}->{"solidbody"},
-			 -1*$precomp_scale[$i]);
-		}
 	    }
+
+	    if (defined($precomp_Tcond) && 
+		defined($my_files{$body,$precomp_sorted_Tconds[$i]})) {
+
+		my $precomp_condition=$precomp_sorted_Tconds[$i];
+		push($db->{$body}->{"contribs"}->{"solidbody"},
+		     $my_files{$body,$precomp_condition});
+		push($db->{$body}->{"weights"}->{"solidbody"},
+		     -1*$precomp_scale[$i]);
+	    }
+
 	    foreach my $side (@sides) {
-		# for distortions (zernike expansion format)
 		if (defined($my_files{$body,$condition,$side})) {
 		    push($db->{$body}->{"contribs"}->{$side},
 			 $my_files{$body,$condition,$side});
@@ -308,17 +296,6 @@ foreach my $body (@bodies) {
 			     $scale[$i]-$precomp_scale[$i]);
 		    } else {
 			push($db->{$body}->{"weights"}->{$side},$scale[$i]);
-		    }
-		}
-		# for distortions (tnt format) [careful with the commas & dots]
-		if (defined($my_files{$body,$condition,$side,"tnt"})) {
-		    push($db->{$body}->{"contribs"}->{$side."tnt"},
-			 $my_files{$body,$condition,$side,"tnt"});
-		    if ($precomp_figures==1) {
-			push($db->{$body}->{"weights"}->{$side."tnt"},
-			     $scale[$i]-$precomp_scale[$i]);
-		    } else {
-			push($db->{$body}->{"weights"}->{$side."tnt"},$scale[$i]);
 		    }
 		}
 	    }
